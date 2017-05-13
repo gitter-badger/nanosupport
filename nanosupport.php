@@ -277,6 +277,9 @@ include_once 'includes/ns-core-functions.php';
 /** Functions specific to setup the environments **/
 include_once 'includes/ns-set-environment.php';
 
+/** Class: File Uploader **/
+include_once 'includes/class-file-uploader.php';
+
 /** CPT Tickets **/
 include_once 'includes/ns-cpt-nanosupport.php';
 /** CPT Knowledgebase **/
@@ -311,7 +314,6 @@ include_once 'includes/admin/ns-system-status.php';
 
 /** NanoSupport Updates */
 include_once 'includes/ns-updates.php';
-
 
 /**
  * Set the plugin up

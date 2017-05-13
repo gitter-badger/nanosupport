@@ -882,3 +882,18 @@ function ns_get_taxonomy_parents( $id, $taxonomy, $separator = '/', $visited = a
 
     return $chain;
 }
+
+
+
+/**
+ * Change the form for rich media.
+ *
+ * @since  1.0.0
+ * --------------------------------------------------------------------------
+ */
+function ns_change_form_type_for_rich_media() {
+    echo ' enctype="multipart/form-data"';
+}
+
+add_action( 'post_edit_form_tag',               'ns_change_form_type_for_rich_media' );
+add_action( 'nanosupport_new_ticket_form_tag',  'ns_change_form_type_for_rich_media' );

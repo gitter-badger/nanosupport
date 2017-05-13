@@ -16,6 +16,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 function ns_responses_meta_box() {
     add_meta_box(
+        'nanosupport-attachment',                   // metabox ID
+        esc_html__( 'Attachment', 'nanosupport' ),  // metabox title
+        'ns_attachment_specifics',                  // callback function
+        'nanosupport',                              // post type (+ CPT)
+        'normal',                                   // 'normal', 'advanced', or 'side'
+        'high'                                      // 'high', 'core', 'default' or 'low'
+    );
+
+    add_meta_box(
         'nanosupport-responses',                    // metabox ID
         esc_html__( 'Responses', 'nanosupport' ),   // metabox title
         'ns_reply_specifics',                       // callback function
@@ -45,6 +54,69 @@ function ns_responses_meta_box() {
 }
 
 add_action( 'add_meta_boxes', 'ns_responses_meta_box' );
+
+
+// Attachment Callback
+function ns_attachment_specifics() {
+    global $post;
+    $meta_data = get_post_meta( $post->ID, '_ns_ticket_attachment' );
+    ?>
+    <div class="ns-row">
+        <div class="ns-box">
+            <div class="ns-field">
+                <?php
+                $number_attachment_allowed = 3; // MAKE IT DYNAMIC
+                $meta_loop_count = 1;
+                ?>
+                <table class="ns-attachment-table">
+                    <tbody>
+                    <?php if( $meta_data ) { ?>
+                        <?php var_dump($meta_data); ?>
+
+                        <?php foreach( $meta_data as $key => $attachment_file_url ) { ?>
+                            <tr id="ns-attachment-holder-<?php echo $key; ?>" class="ns-attachment-holder">
+                                <td>
+                                    <a class="ns-attachment-link" href="<?php echo esc_url($attachment_file_url); ?>" target="_blank" title="<?php esc_attr_e( 'Open or Download Ticket Attachment', 'nanosupport' ); ?>">
+                                        <i class="dashicons dashicons-paperclip"></i> <?php echo basename($attachment_file_url); ?>
+                                    </a>
+                                </td>
+                                <td>
+                                    <?php
+                                    $del_attachment_link = add_query_arg( 'del_attachment', $attachment_file_url, $_SERVER['REQUEST_URI'] );
+                                    $del_attachment_link = wp_nonce_url( $del_attachment_link, 'delete-ticket-attachment' );
+                                    ?>
+                                    <a id="<?php echo $attachment_file_url; ?>" class="ns-detach-attachment dashicons dashicons-dismiss" href="<?php echo esc_url($del_attachment_link); ?>" title="<?php esc_attr_e( 'Detach this Attachment', 'nanosupport' ); ?>"></a>
+                                </td>
+                            </tr>
+                            <?php $meta_loop_count++; ?>
+                        <?php } //endforeach ?>
+                    
+                    <?php } ?>
+
+                    <?php for( $i = $meta_loop_count; $i <= $number_attachment_allowed; $i++ ) { ?>
+                        <tr class="ns-attachment-holder">
+                            <td colspan="2">
+                                <label class="button button-default ns-btn-file">
+                                    <span class="hide-if-no-js"><?php _e( 'Add an Attachment...', 'nanosupport' ); ?></span><input type="file" name="ns_ticket_attachment[]" id="ns-ticket-attachment">
+                                </label>
+                            </td>
+                        </tr>
+                    <?php } //endfor ?>
+
+                    </tbody>
+                </table>
+
+                <div class="ns-conditional-notice hide-if-js"><?php _e( '<button class="button button-primary">Save the ticket</button> to detach the attachment and to add a new attachment', 'nanasupport' ); ?></div>
+                
+                <p class="description">
+                    <?php _e( 'Add an attachment (optional).<br>Accepted file types: <code>.jpg</code>, <code>.jpeg</code>, <code>.png</code>, <code>.tiff</code>, <code>.bmp</code>, <code>.gif</code>, <code>.pdf</code>, <code>.doc</code>, <code>.docx</code>, <code>.rtf</code>, <code>.zip</code>', 'nanosupport' ); ?>
+                </p>
+
+            </div> <!-- /.ns-field -->
+        </div> <!-- /.ns-box -->
+    </div> <!-- /.ns-row -->
+    <?php
+}
 
 
 // Responses Callback
@@ -310,14 +382,79 @@ function ns_save_nanosupport_meta_data( $post_id ) {
 
     global $current_user;
 
+    /**
+     * Save Attachment.
+     * ...
+     */
+    $has_new_attachment   = false;
+    $new_attachments      = array();
+    $existing_files_from_ticket = '';
+    
+    // New attachments.
+    if( isset($_FILES['ns_ticket_attachment']) ) {
+
+        $allowed_mime_types = NSFileUploader()->allowed_attachment_mime_types();
+
+        foreach( $_FILES['ns_ticket_attachment']['name'] as $key => $attachment_name ) {
+
+            if( 0 == $_FILES['ns_ticket_attachment']['size'][$key] && 0 == $_FILES['ns_ticket_attachment']['error'][0] ) {
+                // empty file.
+            } else {
+                if ( ! in_array( $_FILES['ns_ticket_attachment']['type'][$key], $allowed_mime_types ) ) {
+                    $ns_errors[] = __( 'The file you are trying to upload is not a valid type. Please refer to the instruction', 'nanosupport' );
+                } else {
+
+                    // Make the wp_handle_upload() function available.
+                    if ( ! function_exists( 'wp_handle_upload' ) ) {
+                        require_once( ABSPATH .'wp-admin/includes/file.php' );
+                    }
+
+                    $upload_overrides = array( 'test_form' => false );
+
+                    // Set custom setup.
+                    add_filter( 'upload_dir',   array( 'NSFileUploader', 'ticket_attachment_dir' ) ); // Register NS path override.
+                    add_filter( 'upload_mimes', array( 'NSFileUploader', 'allowed_attachment_mime_types' ) ); //Register NS accepted file types
+
+                        // WordPress will move the file to 'uploads/nanosupport'.
+                        $attachment_file = wp_upload_bits( $_FILES['ns_ticket_attachment']['name'][$key], null, file_get_contents($_FILES['ns_ticket_attachment']['tmp_name'][$key]) );
+
+                    // Set everything back to normal.
+                    remove_filter( 'upload_dir',    array( 'NSFileUploader', 'ticket_attachment_dir' ) );
+                    remove_filter( 'upload_mimes',  array( 'NSFileUploader', 'allowed_attachment_mime_types' ) );
+
+                    if( isset($attachment_file['error']) && $attachment_file['error'] != 0 ) {
+
+                        // Display the error.
+                        wp_die( printf( __( 'Error uploading your file. Error due to: %s', 'nanosupport' ), $upload['error'] ) );
+
+                    } else {
+
+                        // Prepare the attachment now.
+                        $new_attachments[]  = $attachment_file['url'];
+
+                        $has_new_attachment = true;
+
+                    }
+                }
+            }
+
+        } //endforeach
+        
+    } //endif isset($_FILES['ns_ticket_attachment'])
+
+    // Existing attachments.
+    if( isset($_POST['meta_attachment']) ) {
+        $existing_files_from_ticket = $_POST['meta_attachment'];
+    }
+
 
     /**
      * Save NanoSupport Ticket Meta.
      * ...
      */
-    $ns_ticket_status      = $_POST['ns_ticket_status'];
-    $ns_ticket_priority    = $_POST['ns_ticket_priority'];
-    $ns_ticket_agent       = $_POST['ns_ticket_agent'];
+    $ns_ticket_status   = $_POST['ns_ticket_status'];
+    $ns_ticket_priority = $_POST['ns_ticket_priority'];
+    $ns_ticket_agent    = $_POST['ns_ticket_agent'];
 
     update_post_meta( $post_id, '_ns_ticket_status',   sanitize_text_field( $ns_ticket_status ) );
     update_post_meta( $post_id, '_ns_ticket_priority', sanitize_text_field( $ns_ticket_priority ) );
@@ -347,6 +484,15 @@ function ns_save_nanosupport_meta_data( $post_id ) {
 
         // Add a ticket agent always, if assigned
         update_post_meta( $post_id, '_ns_ticket_agent', absint( $ns_ticket_agent ) );
+    }
+
+    if( $has_new_attachment ){
+        $existing_data = get_post_meta( $post_id, '_ns_ticket_attachment' );
+        foreach( $new_attachments as $attachment ) {
+            if( ! in_array($existing_file, $existing_data) ) {
+                add_post_meta( $post_id, '_ns_ticket_attachment', $attachment );
+            }
+        }
     }
 
     
