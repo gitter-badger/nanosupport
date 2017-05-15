@@ -71,21 +71,20 @@ function ns_attachment_specifics() {
                 <table class="ns-attachment-table">
                     <tbody>
                     <?php if( $meta_data ) { ?>
-                        <?php var_dump($meta_data); ?>
 
-                        <?php foreach( $meta_data as $key => $attachment_file_url ) { ?>
+                        <?php foreach( $meta_data as $key => $attachment_file ) { ?>
                             <tr id="ns-attachment-holder-<?php echo $key; ?>" class="ns-attachment-holder">
                                 <td>
-                                    <a class="ns-attachment-link" href="<?php echo esc_url($attachment_file_url); ?>" target="_blank" title="<?php esc_attr_e( 'Open or Download Ticket Attachment', 'nanosupport' ); ?>">
-                                        <i class="dashicons dashicons-paperclip"></i> <?php echo basename($attachment_file_url); ?>
+                                    <a class="ns-attachment-link" href="<?php echo esc_url($attachment_file['url']); ?>" target="_blank" title="<?php esc_attr_e( 'Open or Download Ticket Attachment', 'nanosupport' ); ?>">
+                                        <i class="dashicons dashicons-paperclip"></i> <?php echo basename($attachment_file['url']); ?>
                                     </a>
                                 </td>
                                 <td>
                                     <?php
-                                    $del_attachment_link = add_query_arg( 'del_attachment', $attachment_file_url, $_SERVER['REQUEST_URI'] );
+                                    $del_attachment_link = add_query_arg( 'del_attachment', $attachment_file['file'], $_SERVER['REQUEST_URI'] );
                                     $del_attachment_link = wp_nonce_url( $del_attachment_link, 'delete-ticket-attachment' );
                                     ?>
-                                    <a id="<?php echo $attachment_file_url; ?>" class="ns-detach-attachment dashicons dashicons-dismiss" href="<?php echo esc_url($del_attachment_link); ?>" title="<?php esc_attr_e( 'Detach this Attachment', 'nanosupport' ); ?>"></a>
+                                    <a id="<?php echo $attachment_file['file']; ?>" class="ns-detach-attachment dashicons dashicons-dismiss" href="<?php echo esc_url($del_attachment_link); ?>" title="<?php esc_attr_e( 'Detach this Attachment', 'nanosupport' ); ?>"></a>
                                 </td>
                             </tr>
                             <?php $meta_loop_count++; ?>
@@ -97,7 +96,8 @@ function ns_attachment_specifics() {
                         <tr class="ns-attachment-holder">
                             <td colspan="2">
                                 <label class="button button-default ns-btn-file">
-                                    <span class="hide-if-no-js"><?php _e( 'Add an Attachment...', 'nanosupport' ); ?></span><input type="file" name="ns_ticket_attachment[]" id="ns-ticket-attachment">
+                                    <span class="hide-if-no-js"><?php _e( 'Add an Attachment&hellip;', 'nanosupport' ); ?></span>
+                                    <input type="file" name="ns_ticket_attachment[]">
                                 </label>
                             </td>
                         </tr>
@@ -106,7 +106,7 @@ function ns_attachment_specifics() {
                     </tbody>
                 </table>
 
-                <div class="ns-conditional-notice hide-if-js"><?php _e( '<button class="button button-primary">Save the ticket</button> to detach the attachment and to add a new attachment', 'nanasupport' ); ?></div>
+                <div class="ns-conditional-notice hide-if-js"><?php _e( '<button class="button button-primary">Save the ticket</button> to detach the attachment and to add a new attachment', 'nanosupport' ); ?></div>
                 
                 <p class="description">
                     <?php _e( 'Add an attachment (optional).<br>Accepted file types: <code>.jpg</code>, <code>.jpeg</code>, <code>.png</code>, <code>.tiff</code>, <code>.bmp</code>, <code>.gif</code>, <code>.pdf</code>, <code>.doc</code>, <code>.docx</code>, <code>.rtf</code>, <code>.zip</code>', 'nanosupport' ); ?>
@@ -386,9 +386,8 @@ function ns_save_nanosupport_meta_data( $post_id ) {
      * Save Attachment.
      * ...
      */
-    $has_new_attachment   = false;
-    $new_attachments      = array();
-    $existing_files_from_ticket = '';
+    $has_new_attachment = false;
+    $new_attachments    = array();
     
     // New attachments.
     if( isset($_FILES['ns_ticket_attachment']) ) {
@@ -430,7 +429,7 @@ function ns_save_nanosupport_meta_data( $post_id ) {
                     } else {
 
                         // Prepare the attachment now.
-                        $new_attachments[]  = $attachment_file['url'];
+                        $new_attachments[]  = $attachment_file;
 
                         $has_new_attachment = true;
 
@@ -441,11 +440,6 @@ function ns_save_nanosupport_meta_data( $post_id ) {
         } //endforeach
         
     } //endif isset($_FILES['ns_ticket_attachment'])
-
-    // Existing attachments.
-    if( isset($_POST['meta_attachment']) ) {
-        $existing_files_from_ticket = $_POST['meta_attachment'];
-    }
 
 
     /**

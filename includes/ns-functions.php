@@ -843,6 +843,27 @@ add_action( 'admin_init', 'ns_del_admin_response' );
 
 
 /**
+ * Delete response in Admin panel.
+ *
+ * Delete individual response in admin panel edit post.
+ *
+ * @since  1.0.0
+ * -----------------------------------------------------------------------
+ */
+function ns_del_admin_ticket_attachment() {
+    if( ! ( isset($_GET['_wpnonce']) && wp_verify_nonce( $_GET['_wpnonce'], 'delete-ticket-attachment' ) ) )
+        return;
+
+    var_dump($_GET['del_attachment']);
+
+    // Delete the file
+    //unlink( $_GET['del_attachment'] );
+}
+
+add_action( 'admin_init', 'ns_del_admin_ticket_attachment' );
+
+
+/**
  * Delete Response in admin panel.
  * 
  * AJAX powered deletion of response.
